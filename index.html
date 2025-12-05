@@ -3,22 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Momo O2O Dispatch System</title>
+    <title>Momo O2O 派單系統</title>
     
-    <!-- Tailwind CSS (Global CDN) -->
+    <!-- 1. 引入必要的 CDN 資源 -->
+    <!-- Tailwind CSS: 快速切版與美化 -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Vue.js 3 (Global CDN) -->
+    <!-- Vue.js 3: 前端核心框架 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
-    <!-- LINE LIFF SDK -->
+    <!-- LINE LIFF SDK: 與 LINE App 互動 -->
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
     <style>
         /* 針對 LINE 瀏覽器的優化 */
         body { -webkit-tap-highlight-color: transparent; }
+        
+        /* Loading 旋轉動畫 */
         .loader {
-            border-top-color: #3498db;
+            border-top-color: #db2777; /* pink-600 */
             -webkit-animation: spinner 1.5s linear infinite;
             animation: spinner 1.5s linear infinite;
         }
@@ -26,53 +29,92 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        [v-cloak] { display: none; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
 
-    <div id="app" class="min-h-screen flex flex-col relative">
+    <!-- Vue App 掛載點 -->
+    <div id="app" v-cloak class="min-h-screen flex flex-col relative">
         
-        <!-- Header -->
-        <header class="bg-pink-600 text-white p-4 shadow-md sticky top-0 z-50">
-            <h1 class="text-lg font-bold">Momo O2O 派單系統</h1>
-            <p class="text-xs opacity-80" v-if="liffProfile">Hi, {{ liffProfile.displayName }}</p>
+        <!-- Header 區域 -->
+        <header class="bg-pink-600 text-white p-4 shadow-md sticky top-0 z-50 flex justify-between items-center">
+            <div>
+                <h1 class="text-lg font-bold">Momo O2O 派單系統</h1>
+                <p class="text-xs opacity-90" v-if="liffProfile">
+                    嗨，{{ liffProfile.displayName }}
+                </p>
+                <p class="text-xs opacity-60" v-else>訪客模式</p>
+            </div>
+            <!-- 重新整理按鈕 -->
+            <button @click="fetchOrders" :disabled="isLoading" class="text-white bg-pink-700 hover:bg-pink-800 p-2 rounded-full active:scale-95 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </button>
         </header>
 
-        <!-- Main Content -->
-        <main class="flex-grow p-4 space-y-4">
+        <!-- Main Content 區域 -->
+        <main class="flex-grow p-4 space-y-4 pb-20">
             
-            <!-- Loading State -->
-            <div v-if="isLoading" class="flex justify-center items-center py-10">
-                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12"></div>
-            </div>
-
-            <!-- Error Message -->
-            <div v-if="errorMessage" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow" role="alert">
-                <p class="font-bold">錯誤</p>
+            <!-- 錯誤訊息提示 -->
+            <div v-if="errorMessage" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow mb-4 animate-pulse">
+                <p class="font-bold">發生錯誤</p>
                 <p>{{ errorMessage }}</p>
             </div>
 
-            <!-- Order List -->
+            <!-- Loading 狀態 -->
+            <div v-if="isLoading" class="flex flex-col justify-center items-center py-10 space-y-3">
+                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-10 w-10"></div>
+                <p class="text-gray-500 text-sm">資料讀取中...</p>
+            </div>
+
+            <!-- 訂單列表 -->
             <div v-if="!isLoading" class="space-y-4">
-                <div v-if="Object.keys(orders).length === 0" class="text-center text-gray-500 py-10">
-                    目前無待派訂單
+                
+                <!-- 無資料顯示 -->
+                <div v-if="Object.keys(orders).length === 0" class="text-center text-gray-500 py-10 bg-white rounded-lg shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                    <p>目前沒有待派訂單</p>
                 </div>
 
-                <div v-for="(order, id) in orders" :key="id" class="bg-white rounded-lg shadow p-4 border-l-4 border-pink-500">
+                <!-- 訂單卡片 -->
+                <div v-for="(order, id) in orders" :key="id" class="bg-white rounded-lg shadow-md p-4 border-l-4 border-pink-500 hover:shadow-lg transition duration-200">
                     <div class="flex justify-between items-start mb-2">
                         <span class="bg-pink-100 text-pink-800 text-xs font-semibold px-2.5 py-0.5 rounded">
                             {{ id }}
                         </span>
-                        <span class="text-sm text-gray-500">{{ formatDate(order.createdAt) }}</span>
+                        <span class="text-xs text-gray-400">
+                            {{ order.createdAt ? formatDate(order.createdAt) : '剛剛' }}
+                        </span>
                     </div>
-                    <h3 class="font-bold text-lg mb-1">{{ order.customerName }}</h3>
-                    <p class="text-sm text-gray-600 mb-3">{{ order.address }}</p>
                     
-                    <div class="flex space-x-2 mt-3">
+                    <h3 class="font-bold text-lg mb-1 text-gray-800">
+                        {{ order.customerName || '未具名客戶' }}
+                    </h3>
+                    
+                    <div class="flex items-start text-sm text-gray-600 mb-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
+                        </svg>
+                        <span>{{ order.address || '無地址資訊' }}</span>
+                    </div>
+
+                    <div v-if="order.model" class="text-xs bg-gray-100 inline-block px-2 py-1 rounded text-gray-600 mb-3">
+                        機型: {{ order.model }}
+                    </div>
+                    
+                    <div class="mt-2 pt-3 border-t border-gray-100">
                         <button 
                             @click="dispatchOrder(id)" 
-                            class="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-pink-500 transition duration-150">
-                            接單派送
+                            class="w-full bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-white font-bold py-2.5 px-4 rounded-lg shadow focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-50 transition duration-150 flex justify-center items-center">
+                            <span>接單派送</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
                         </button>
                     </div>
                 </div>
@@ -81,8 +123,8 @@
         </main>
 
         <!-- Footer -->
-        <footer class="bg-gray-800 text-white text-center p-3 text-xs">
-            System v1.0.0
+        <footer class="bg-gray-800 text-gray-400 text-center p-4 text-xs mt-auto">
+            <p>&copy; 2023 Momo Dispatch System v1.1 (GitHub Ver)</p>
         </footer>
 
     </div>
@@ -92,61 +134,94 @@
 
         createApp({
             setup() {
-                // 狀態管理
+                // ==========================================
+                // 1. 設定與狀態變數
+                // ==========================================
+                
+                // 您的 GAS 後端部署網址
+                const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbykD87A-5V5WvRMcGQxFYUZtjcaMWWUC6GjoiMZsmfyw9E6mOc8Y5EY6vZ1jxcJUNEKAg/exec';
+                
+                // 請在此填入新的 LIFF ID (因為網域換了，需要在 LINE Developer Console 重新確認)
+                const LIFF_ID = "您的_NEW_LIFF_ID"; 
+
                 const orders = ref({});
                 const isLoading = ref(false);
                 const errorMessage = ref('');
                 const liffProfile = ref(null);
 
-                // GAS API URL (部署後填入)
-                const GAS_API_URL = 'YOUR_GAS_DEPLOYMENT_URL';
+                // ==========================================
+                // 2. 核心 API 呼叫函式 (解決 CORS 問題)
+                // ==========================================
+                const callApi = async (action, payloadData = {}) => {
+                    const payload = JSON.stringify({ action, data: payloadData });
+                    
+                    // 關鍵技巧: 使用 text/plain 避免瀏覽器發送 OPTIONS Preflight 請求
+                    // 因為 GAS 不支援 OPTIONS 請求，使用 application/json 會導致 CORS 錯誤
+                    const response = await fetch(GAS_API_URL, {
+                        method: 'POST',
+                        redirect: 'follow',
+                        headers: {
+                            'Content-Type': 'text/plain;charset=utf-8', 
+                        },
+                        body: payload
+                    });
+
+                    const json = await response.json();
+                    
+                    if (json.status === 'error') {
+                        throw new Error(json.message);
+                    }
+                    
+                    return json.data;
+                };
+
+                // ==========================================
+                // 3. 業務邏輯功能
+                // ==========================================
 
                 // 初始化 LIFF
                 const initLiff = async () => {
                     try {
-                        // 請替換為您的 LIFF ID
-                        await liff.init({ liffId: "YOUR_LIFF_ID" });
+                        if (LIFF_ID === "您的_NEW_LIFF_ID") {
+                            console.warn("尚未設定 LIFF ID，跳過初始化");
+                            return;
+                        }
+                        
+                        await liff.init({ liffId: LIFF_ID });
+                        
                         if (liff.isLoggedIn()) {
                             liffProfile.value = await liff.getProfile();
                         } else {
-                            liff.login();
+                            // 在開發階段或網頁測試時，可以註解掉下面這行避免自動跳轉
+                            // liff.login(); 
                         }
                     } catch (err) {
                         console.error('LIFF Init Failed', err);
-                        errorMessage.value = "LIFF 初始化失敗，請在 LINE 內開啟";
+                        errorMessage.value = `LIFF 初始化失敗 (${err.code}): ${err.message}`;
                     }
                 };
 
-                // 獲取訂單列表 (呼叫 GAS Backend)
+                // 獲取訂單列表
                 const fetchOrders = async () => {
                     isLoading.value = true;
                     errorMessage.value = '';
                     
                     try {
-                        // 由於 GAS doPost 需要 CORS 處理，通常前端使用 fetch 直接打會遇到問題
-                        // 在真實 LINE LIFF + GAS 架構中，通常有兩種解法：
-                        // 1. 使用 GAS 輸出的 iframe 或 HTML
-                        // 2. 使用 fetch 搭配 text/plain 繞過複雜請求，並在 GAS 端處理
-                        // 這裡演示標準 fetch post
-                        const response = await fetch(GAS_API_URL, {
-                            method: 'POST',
-                            mode: 'no-cors', // GAS 的特性，通常設為 no-cors，但無法讀取回傳值
-                            // 若需讀取回傳值，建議使用 redirect: 'follow' 配合 ContentService
-                            headers: {
-                                'Content-Type': 'text/plain;charset=utf-8',
-                            },
-                            body: JSON.stringify({ action: 'GET_PENDING_ORDERS' })
-                        });
+                        const data = await callApi('GET_PENDING_ORDERS');
+                        orders.value = data || {};
                         
-                        // 備註：在 no-cors 模式下無法直接讀取 JSON
-                        // 實際專案建議：直接讀取 Firebase RDB (前端 SDK) 以獲得即時性
-                        // 這裡為了架構一致性演示 API 呼叫，若改用 Firebase SDK 會更順暢
-                        
-                        // 模擬數據 (因為 no-cors 拿不到資料)
-                        // orders.value = ... 
+                        // 如果沒有資料，且是開發環境，可以取消註解下方測試數據
+                        /*
+                        if(Object.keys(orders.value).length === 0) {
+                            orders.value = {
+                                'TEST-001': { customerName: '測試客戶', address: '台北市測試路一段', createdAt: new Date(), model: 'iPhone 15' }
+                            };
+                        }
+                        */
                         
                     } catch (err) {
-                        errorMessage.value = err.message;
+                        console.error(err);
+                        errorMessage.value = "讀取失敗: " + err.message;
                     } finally {
                         isLoading.value = false;
                     }
@@ -154,50 +229,46 @@
 
                 // 派單動作
                 const dispatchOrder = async (orderId) => {
-                    if(!confirm('確認接單？')) return;
+                    if(!confirm(`確認要接下訂單 ${orderId} 嗎？`)) return;
                     
                     isLoading.value = true;
                     try {
-                         // 呼叫 GAS API
-                         const payload = {
-                            action: 'DISPATCH_ORDER',
-                            data: {
-                                orderId: orderId,
-                                driverId: liffProfile.value ? liffProfile.value.userId : 'GUEST'
-                            }
-                        };
+                        // 取得目前使用者 ID (若無 LIFF 則用 GUEST)
+                        const driverId = liffProfile.value ? liffProfile.value.userId : 'GUEST_DRIVER';
                         
-                        await fetch(GAS_API_URL, {
-                            method: 'POST',
-                            body: JSON.stringify(payload)
+                        await callApi('DISPATCH_ORDER', {
+                            orderId: orderId,
+                            driverId: driverId
                         });
                         
-                        // 樂觀更新 UI
+                        // 成功後從列表中移除該訂單 (樂觀更新)
                         delete orders.value[orderId];
-                        alert('派單成功！');
+                        alert('✅ 接單成功！');
 
                     } catch (err) {
-                        alert('派單失敗: ' + err.message);
+                        alert('❌ 接單失敗: ' + err.message);
                     } finally {
                         isLoading.value = false;
                     }
                 };
-                
-                // 輔助函式
-                const formatDate = (isoString) => {
-                    if(!isoString) return '';
-                    return new Date(isoString).toLocaleString('zh-TW');
+
+                // 日期格式化小工具
+                const formatDate = (val) => {
+                    if (!val) return '';
+                    return new Date(val).toLocaleString('zh-TW', {
+                        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                    });
                 };
 
+                // ==========================================
+                // 4. 生命週期
+                // ==========================================
                 onMounted(() => {
                     // 1. 初始化 LIFF
-                    // initLiff(); 
+                    initLiff();
                     
-                    // 2. 暫時模擬一些數據方便開發測試
-                    orders.value = {
-                        'ORD-001': { customerName: '陳小姐', address: '台北市信義區忠孝東路五段', createdAt: new Date().toISOString() },
-                        'ORD-002': { customerName: '林先生', address: '新北市板橋區縣民大道', createdAt: new Date().toISOString() }
-                    };
+                    // 2. 載入資料
+                    fetchOrders();
                 });
 
                 return {
@@ -205,6 +276,7 @@
                     isLoading,
                     errorMessage,
                     liffProfile,
+                    fetchOrders,
                     dispatchOrder,
                     formatDate
                 };
