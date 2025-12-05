@@ -90,8 +90,7 @@
         createApp({
             setup() {
                 // ==========================================
-                // ⚠️ 請修正這裡！填入正確的 LIFF ID
-                // 格式範例: "1657xxxxxx-AbCxxxxx"
+                // 1. 設定區域
                 // ==========================================
                 const LIFF_ID = "2008639782-x840YeZq"; 
                 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbykD87A-5V5WvRMcGQxFYUZtjcaMWWUC6GjoiMZsmfyw9E6mOc8Y5EY6vZ1jxcJUNEKAg/exec';
@@ -101,6 +100,9 @@
                 const errorMessage = ref('');
                 const liffProfile = ref(null);
 
+                // ==========================================
+                // 2. API 呼叫 (CORS 對策)
+                // ==========================================
                 const callApi = async (action, payloadData = {}) => {
                     const payload = JSON.stringify({ action, data: payloadData });
                     const response = await fetch(GAS_API_URL, {
@@ -114,28 +116,39 @@
                     return json.data;
                 };
 
+                // ==========================================
+                // 3. LIFF 初始化 (修正版)
+                // ==========================================
                 const initLiff = async () => {
                     try {
-                        if (LIFF_ID === "2008639782-x840YeZq") {
-                            alert("請先修改程式碼中的 LIFF_ID！");
+                        // 防呆檢查 1: 檢查是否誤填 User ID
+                        if (LIFF_ID.startsWith("U") && !LIFF_ID.includes("-")) {
+                            alert(`錯誤：您填入的 "${LIFF_ID}" 看起來像 User ID，不是 LIFF ID。\n正確的 LIFF ID 格式應為 "12345678-xxxxxxx"。`);
+                            return;
+                        }
+                        // 防呆檢查 2: 檢查格式完整性
+                        if (!LIFF_ID || !LIFF_ID.includes("-")) {
+                            alert(`格式錯誤：LIFF ID "${LIFF_ID}" 必須包含連字號 (-)。`);
                             return;
                         }
                         
                         await liff.init({ liffId: LIFF_ID });
                         
-                        // ✅ 自動登入邏輯 (已啟用)
+                        // 自動登入
                         if (!liff.isLoggedIn()) {
                             liff.login();
                         } else {
                             liffProfile.value = await liff.getProfile();
                         }
                     } catch (err) {
-                        // 讓錯誤直接彈出，方便您除錯
-                        alert(`LIFF Error: ${err.message}`);
+                        alert(`LIFF Error: ${err.message}\n請檢查 LIFF ID 是否正確，或 Endpoint URL 是否設定為您的 GitHub Pages 網址。`);
                         errorMessage.value = `LIFF 初始化失敗: ${err.message}`;
                     }
                 };
 
+                // ==========================================
+                // 4. 業務功能
+                // ==========================================
                 const fetchOrders = async () => {
                     isLoading.value = true;
                     errorMessage.value = '';
