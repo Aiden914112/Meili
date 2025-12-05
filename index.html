@@ -192,8 +192,8 @@
                         if (liff.isLoggedIn()) {
                             liffProfile.value = await liff.getProfile();
                         } else {
-                            // 在開發階段或網頁測試時，可以註解掉下面這行避免自動跳轉
-                            // liff.login(); 
+                            // 正式環境建議開啟自動登入，確保抓得到司機 ID
+                             liff.login(); 
                         }
                     } catch (err) {
                         console.error('LIFF Init Failed', err);
